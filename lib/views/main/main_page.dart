@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:safence/components/bottomnav.dart';
 import 'package:safence/utils/constants.dart';
+import 'package:safence/views/main/messages.dart';
 import 'package:safence/views/static/page404.dart';
 
 class HomeController extends StatefulWidget {
@@ -16,7 +17,7 @@ class _HomeControllerState extends State<HomeController> {
 
   List<Widget> get _pages => [
     Page404(),
-    Page404(),
+    MessagesScreen(),
     Page404(),
     Page404(),
     Page404(),
