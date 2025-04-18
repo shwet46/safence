@@ -17,19 +17,14 @@ class MessagesApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'Inter',
-        scaffoldBackgroundColor: Colors.black, // Pure black background as shown in image
+        scaffoldBackgroundColor: Colors.black,
       ),
       home: const MessagesScreen(),
     );
   }
 }
 
-enum MessageCategory {
-  all,
-  spam,
-  important,
-  regular,
-}
+enum MessageCategory { all, spam, important, regular }
 
 class MessageData {
   final String sender;
@@ -49,9 +44,9 @@ class MessageData {
   Color get senderColor {
     switch (category) {
       case MessageCategory.spam:
-        return Color(0xFFE25C5C); // Bright red for spam as in image
+        return Color(0xFFE25C5C);
       case MessageCategory.important:
-        return Color(0xFFE9AD40); // Golden amber for important
+        return Color(0xFFE9AD40);
       default:
         return Colors.white;
     }
@@ -70,12 +65,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
   bool _isFilterMenuOpen = false;
 
   final List<MessageData> _allMessages = [
-    MessageData(sender: '54321', content: 'Your Vi recharge is sucessful curre...', time: '03:41', isYesterday: false, category: MessageCategory.regular),
-    MessageData(sender: 'VM-TCSP', content: 'Click here to with the rewards and...', time: '02:45', isYesterday: false, category: MessageCategory.spam),
-    MessageData(sender: 'Maha-gov', content: 'Your registration is successfull kindly...', time: '03:41', isYesterday: false, category: MessageCategory.important),
-    MessageData(sender: 'Flipkart', content: 'Your order is placed successfully.....', time: 'Yesterday', isYesterday: true, category: MessageCategory.regular),
+    MessageData(sender: '54321', content: 'Your Vi recharge is successful curre...', time: '03:41', isYesterday: false, category: MessageCategory.regular),
+    MessageData(sender: 'VM-TCSP', content: 'Click here to win the rewards and...', time: '02:45', isYesterday: false, category: MessageCategory.spam),
+    MessageData(sender: 'Maha-gov', content: 'Your registration is successful kindly...', time: '03:41', isYesterday: false, category: MessageCategory.important),
+    MessageData(sender: 'Flipkart', content: 'Your order is placed successfully...', time: 'Yesterday', isYesterday: true, category: MessageCategory.regular),
     MessageData(sender: 'SBI-Bank', content: 'Your account is credited with Rs. 50,...', time: 'Yesterday', isYesterday: true, category: MessageCategory.important),
-    MessageData(sender: '54321', content: 'Your Vi recharge is sucessful curre...', time: 'Yesterday', isYesterday: true, category: MessageCategory.regular),
+    MessageData(sender: '54321', content: 'Your Vi recharge is successful curre...', time: 'Yesterday', isYesterday: true, category: MessageCategory.regular),
     MessageData(sender: 'Amazon', content: 'Your order #AB123456 has been shipped...', time: '01:15', isYesterday: false, category: MessageCategory.regular),
     MessageData(sender: 'DM-PRIZE', content: 'Congratulations! You won \$5,000,000 in our lottery...', time: '12:07', isYesterday: false, category: MessageCategory.spam),
     MessageData(sender: 'HDFC-Bank', content: 'Your credit card payment of Rs. 15,000 is due...', time: '09:22', isYesterday: false, category: MessageCategory.important),
@@ -96,10 +91,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Ensure scaffold background is pure black
+      backgroundColor: Colors.black,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0), // Added top padding
+          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
           child: Column(
             children: [
               _buildSearchContainer(),
@@ -117,22 +112,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       child: Row(
         children: [
-          Container(
-            width: 40, 
-            height: 40, 
-            decoration: BoxDecoration(
-              color: Color(0xFF333333), 
-              shape: BoxShape.circle
-            )
-          ),
+          Container(width: 40, height: 40, decoration: BoxDecoration(color: Color(0xFF333333), shape: BoxShape.circle)),
           SizedBox(width: 10),
           Expanded(
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 15),
               height: 45,
               decoration: BoxDecoration(
-                color: Color(0xFF222222), // Dark gray for search bar
-                borderRadius: BorderRadius.circular(10)
+                color: Color(0xFF222222),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -152,17 +140,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return Stack(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
           child: Row(
             children: [
               InkWell(
                 onTap: () => setState(() => _isFilterMenuOpen = !_isFilterMenuOpen),
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Color(0xFF8952D4), // Purple color for filter button
-                    borderRadius: BorderRadius.circular(22)
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  decoration: BoxDecoration(color: Color(0xFF8952D4), borderRadius: BorderRadius.circular(22)),
                   child: Row(
                     children: [
                       Icon(Icons.tune, color: Colors.white, size: 20),
@@ -213,9 +198,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         width: double.infinity,
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFF333333), width: 0.5)),
-        ),
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF333333), width: 0.5))),
         child: Row(
           children: [
             Icon(
@@ -266,6 +249,22 @@ class MessageItem extends StatelessWidget {
 
   const MessageItem({Key? key, required this.message}) : super(key: key);
 
+  IconData _getIconForSender(String sender) {
+    final s = sender.toLowerCase();
+    if (s.contains('flipkart')) return Icons.shopping_bag;
+    if (s.contains('amazon')) return Icons.shopping_cart;
+    if (s.contains('sbi') || s.contains('hdfc')) return Icons.account_balance;
+    if (s.contains('swiggy')) return Icons.fastfood;
+    if (s.contains('uber')) return Icons.directions_car;
+    if (s.contains('netflix')) return Icons.movie;
+    if (s.contains('income')) return Icons.money;
+    if (s.contains('linkedin')) return Icons.work;
+    if (s.contains('gov')) return Icons.account_balance_outlined;
+    if (s.contains('vi') || sender == '54321') return Icons.sim_card;
+    if (s.contains('tcsp') || s.contains('prize') || s.contains('spam')) return Icons.warning;
+    return Icons.message;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -274,12 +273,16 @@ class MessageItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 40, 
-            height: 40, 
-            decoration: BoxDecoration(
-              color: Color(0xFF333333), // Dark gray circular avatar
-              shape: BoxShape.circle
-            )
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: Color(0xFF333333), shape: BoxShape.circle),
+            child: Center(
+              child: Icon(
+                _getIconForSender(message.sender),
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
           ),
           SizedBox(width: 10),
           Expanded(
@@ -299,20 +302,14 @@ class MessageItem extends StatelessWidget {
                     ),
                     Text(
                       message.time,
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
                     ),
                   ],
                 ),
                 SizedBox(height: 4),
                 Text(
                   message.content,
-                  style: TextStyle(
-                    color: Colors.grey[500], 
-                    fontSize: 14
-                  ),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

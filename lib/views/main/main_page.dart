@@ -3,6 +3,7 @@ import 'package:safence/components/bottomnav.dart';
 import 'package:safence/utils/constants.dart';
 import 'package:safence/views/main/mails.dart';
 import 'package:safence/views/main/messages.dart';
+import 'package:safence/views/main/calls.dart';
 import 'package:safence/views/static/page404.dart';
 
 class HomeController extends StatefulWidget {
@@ -17,7 +18,7 @@ class _HomeControllerState extends State<HomeController> {
   final PageController _pageController = PageController();
 
   List<Widget> get _pages => [
-    Page404(),
+    CallsPage(),
     MessagesScreen(),
     Page404(),
     MailsPage(),
