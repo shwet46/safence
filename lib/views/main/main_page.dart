@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:safence/components/bottomnav.dart';
 import 'package:safence/utils/constants.dart';
+import 'package:safence/views/main/mails.dart';
 import 'package:safence/views/main/messages.dart';
 import 'package:safence/views/static/page404.dart';
 
@@ -19,7 +20,7 @@ class _HomeControllerState extends State<HomeController> {
     Page404(),
     MessagesScreen(),
     Page404(),
-    Page404(),
+    MailsPage(),
     Page404(),
   ];
 
