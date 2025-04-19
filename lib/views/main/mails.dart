@@ -236,7 +236,7 @@ class _MailsPageState extends State<MailsPage> {
   }
 
   Widget _buildFilterBar() {
-    return Stack(
+    return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
@@ -266,25 +266,27 @@ class _MailsPageState extends State<MailsPage> {
           ),
         ),
         if (_isFilterMenuOpen)
-          Positioned(
-            top: 50,
-            left: 15,
-            child: Container(
-              width: 200,
-              decoration: BoxDecoration(
-                color: Color(0xFF222222),
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildFilterOption(MessageCategory.all, 'All Mails'),
-                  _buildFilterOption(MessageCategory.important, 'Important', Color(0xFFE9AD40)),
-                  _buildFilterOption(MessageCategory.normal, 'Regular'),
-                  _buildFilterOption(MessageCategory.spam, 'Spam', Color(0xFFE25C5C)),
-                ],
-              ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 15),
+            decoration: BoxDecoration(
+              color: Color(0xFF222222),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFilterOption(MessageCategory.all, 'All Mails'),
+                _buildFilterOption(MessageCategory.important, 'Important', Color(0xFFE9AD40)),
+                _buildFilterOption(MessageCategory.normal, 'Regular'),
+                _buildFilterOption(MessageCategory.spam, 'Spam', Color(0xFFE25C5C)),
+              ],
             ),
           ),
       ],

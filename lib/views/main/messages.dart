@@ -137,24 +137,31 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Widget _buildFilterBar() {
-    return Stack(
+    return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
           child: Row(
             children: [
               InkWell(
                 onTap: () => setState(() => _isFilterMenuOpen = !_isFilterMenuOpen),
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  decoration: BoxDecoration(color: Color(0xFF8952D4), borderRadius: BorderRadius.circular(22)),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF8952D4),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
                   child: Row(
                     children: [
                       Icon(Icons.tune, color: Colors.white, size: 20),
                       SizedBox(width: 8),
                       Text(
                         _getFilterText(),
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 16),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 16,
+                        ),
                       ),
                     ],
                   ),
@@ -164,25 +171,27 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ),
         ),
         if (_isFilterMenuOpen)
-          Positioned(
-            top: 50,
-            left: 15,
-            child: Container(
-              width: 200,
-              decoration: BoxDecoration(
-                color: Color(0xFF222222),
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildFilterOption(MessageCategory.all, 'All Messages'),
-                  _buildFilterOption(MessageCategory.spam, 'Spam', Color(0xFFE25C5C)),
-                  _buildFilterOption(MessageCategory.important, 'Important', Color(0xFFE9AD40)),
-                  _buildFilterOption(MessageCategory.regular, 'Regular'),
-                ],
-              ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 15),
+            decoration: BoxDecoration(
+              color: Color(0xFF222222),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFilterOption(MessageCategory.all, 'All Messages'),
+                _buildFilterOption(MessageCategory.spam, 'Spam', Color(0xFFE25C5C)),
+                _buildFilterOption(MessageCategory.important, 'Important', Color(0xFFE9AD40)),
+                _buildFilterOption(MessageCategory.regular, 'Regular'),
+              ],
             ),
           ),
       ],
