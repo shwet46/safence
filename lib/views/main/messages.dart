@@ -9,7 +9,7 @@ void main() {
 }
 
 class MessagesApp extends StatelessWidget {
-  const MessagesApp({Key? key}) : super(key: key);
+  const MessagesApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +54,7 @@ class MessageData {
 }
 
 class MessagesScreen extends StatefulWidget {
-  const MessagesScreen({Key? key}) : super(key: key);
+  const MessagesScreen({super.key});
 
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
@@ -247,7 +247,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 class MessageItem extends StatelessWidget {
   final MessageData message;
 
-  const MessageItem({Key? key, required this.message}) : super(key: key);
+  const MessageItem({super.key, required this.message});
 
   IconData _getIconForSender(String sender) {
     final s = sender.toLowerCase();

@@ -1,8 +1,9 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:safence/utils/constants.dart';
 
 class Page404 extends StatefulWidget {
+  const Page404({super.key});
+
 
   @override
   _Page404State createState() => _Page404State();

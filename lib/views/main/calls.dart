@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class CallsPage extends StatefulWidget {
-  const CallsPage({Key? key}) : super(key: key);
+  const CallsPage({super.key});
 
   @override
   State<CallsPage> createState() => _PhoneAppPageState();

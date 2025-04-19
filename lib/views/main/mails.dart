@@ -8,6 +8,8 @@ enum MessageCategory {
 }
 
 class MailsPage extends StatefulWidget {
+  const MailsPage({super.key});
+
   @override
   State<MailsPage> createState() => _MailsPageState();
 }
