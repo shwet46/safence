@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 
 class CallsPage extends StatefulWidget {
   const CallsPage({super.key});
@@ -9,6 +10,44 @@ class CallsPage extends StatefulWidget {
 
 class _PhoneAppPageState extends State<CallsPage> {
   bool showContacts = false;
+  List<Contact> _contacts = [];
+  List<Contact> _filteredContacts = [];
+  bool _permissionDenied = false;
+  String _searchQuery = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchContacts();
+  }
+
+  Future<void> _fetchContacts() async {
+    if (!await FlutterContacts.requestPermission(readonly: true)) {
+      setState(() => _permissionDenied = true);
+    } else {
+      final contacts = await FlutterContacts.getContacts(
+        withProperties: true,
+        withPhoto: true,
+      );
+      // Sort contacts alphabetically by displayName
+      contacts.sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+      setState(() {
+        _contacts = contacts;
+        _filteredContacts = List<Contact>.from(contacts);
+      });
+    }
+  }
+
+  void _filterContacts(String query) {
+    setState(() {
+      _searchQuery = query;
+    _filteredContacts = _contacts
+      .where((c) => c.displayName.toLowerCase().contains(query.toLowerCase()))
+      .toList();
+    // Sort filtered contacts alphabetically
+    _filteredContacts.sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,52 +73,41 @@ class _PhoneAppPageState extends State<CallsPage> {
     );
   }
 
+  // 🔹 Custom Search Bar (matches your dark theme)
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: Color(0xFF333333),
-              shape: BoxShape.circle,
-            ),
-            child: const Center(
-              child: Text(
-                "",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        height: 45,
+        decoration: BoxDecoration(
+          color: const Color(0xFF222222),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search, color: Colors.grey, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                style: const TextStyle(color: Colors.white),
+                cursorColor: Colors.white,
+                decoration: const InputDecoration(
+                  hintText: "Search contacts...",
+                  hintStyle: TextStyle(color: Colors.grey),
+                  border: InputBorder.none,
                 ),
+                onChanged: _filterContacts,
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              height: 45,
-              decoration: BoxDecoration(
-                color: const Color(0xFF222222),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Icon(Icons.search, color: Colors.grey, size: 24),
-                  Icon(Icons.more_vert, color: Colors.grey, size: 24),
-                ],
-              ),
-            ),
-          ),
-        ],
+            const Icon(Icons.more_vert, color: Colors.grey, size: 22),
+          ],
+        ),
       ),
     );
   }
 
+  // 🔹 Toggle buttons styled like your code
   Widget _buildFilterButtons() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
@@ -133,102 +161,99 @@ class _PhoneAppPageState extends State<CallsPage> {
     );
   }
 
+  // 🔹 Contacts View (real phone contacts, styled)
   Widget _buildContactsView() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildContactSection('Favourites', [
-            ContactItem(name: 'Mumma', location: 'Mumbai, Maharashtra'),
-            ContactItem(name: 'Pappa', location: 'Mumbai, Maharashtra'),
-            ContactItem(name: 'Didi', location: 'Pune, Maharashtra'),
-            ContactItem(name: 'Best Friend', location: 'Delhi, NCR'),
-          ]),
-          _buildContactSection('A', [
-            ContactItem(name: 'Aarya Pawar', location: 'Mumbai, Maharashtra'),
-            ContactItem(name: 'Aadit', location: 'Bangalore, Karnataka'),
-            ContactItem(name: 'Abhishek', location: 'Mumbai, Maharashtra'),
-            ContactItem(name: 'Abhimanyu', location: 'Delhi, NCR'),
-            ContactItem(name: 'Aditi Sharma', location: 'Bengaluru, Karnataka'),
-            ContactItem(name: 'Ajay Devgan', location: 'Mumbai, Maharashtra'),
-            ContactItem(name: 'Akash Patel', location: 'Ahmedabad, Gujarat'),
-            ContactItem(name: 'Akshay Kumar', location: 'Mumbai, Maharashtra'),
-            ContactItem(name: 'Aman Singh', location: 'Chennai, Tamil Nadu'),
-            ContactItem(name: 'Amit Shah', location: 'Delhi, NCR'),
-          ]),
-          _buildContactSection('B', [
-            ContactItem(name: 'Bhavesh Joshi', location: 'Mumbai, Maharashtra'),
-            ContactItem(name: 'Bharat Kumar', location: 'Jaipur, Rajasthan'),
-            ContactItem(name: 'Bindu Madhavi', location: 'Hyderabad, Telangana'),
-          ]),
-          _buildContactSection('C', [
-            ContactItem(name: 'Chirag Patel', location: 'Surat, Gujarat'),
-            ContactItem(name: 'Chetan Bhagat', location: 'Mumbai, Maharashtra'),
-            ContactItem(name: 'Chandrika Devi', location: 'Patna, Bihar'),
-          ]),
-          _buildContactSection('D', [
-            ContactItem(name: 'Deepak Chahar', location: 'Mumbai, Maharashtra'),
-            ContactItem(name: 'Divya Khosla', location: 'Mumbai, Maharashtra'),
-          ]),
-        ],
-      ),
-    );
-  }
+    if (_permissionDenied) {
+      return const Center(
+        child: Text("Permission denied", style: TextStyle(color: Colors.white)),
+      );
+    }
 
-  Widget _buildContactSection(String title, List<ContactItem> contacts) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 12.0),
-          child: Text(
-            title,
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
-        _buildContactGroup(contacts),
-      ],
-    );
-  }
+    if (_contacts.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
 
-  Widget _buildContactGroup(List<ContactItem> contacts) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFF222222),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        children: contacts.asMap().entries.map((entry) {
-          final index = entry.key;
-          final contact = entry.value;
-          final firstLetter = contact.name.isNotEmpty ? contact.name[0] : "?";
+    if (_filteredContacts.isEmpty && _searchQuery.isNotEmpty) {
+      return Center(
+        child: Text("No contacts found",
+            style: TextStyle(color: Colors.white.withOpacity(0.7))),
+      );
+    }
 
-          return Column(
-            children: [
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFF333333),
-                  child: Text(
-                    firstLetter,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+    // Group contacts by starting letter
+    final Map<String, List<Contact>> grouped = {};
+    for (final c in _filteredContacts) {
+      final letter = c.displayName.isNotEmpty
+          ? c.displayName[0].toUpperCase()
+          : "#";
+      grouped.putIfAbsent(letter, () => []).add(c);
+    }
+    final sortedLetters = grouped.keys.toList()..sort();
+
+    return ListView.builder(
+      itemCount: sortedLetters.length,
+      itemBuilder: (context, i) {
+        final letter = sortedLetters[i];
+        final contacts = grouped[letter]!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8.0),
+              child: Text(
+                letter,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ...contacts.map((c) {
+              final firstLetter = c.displayName.isNotEmpty ? c.displayName[0] : "?";
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 4.0),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF222222),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
+                  leading: c.thumbnail != null
+                      ? CircleAvatar(backgroundImage: MemoryImage(c.thumbnail!))
+                      : CircleAvatar(
+                          backgroundColor: const Color(0xFF333333),
+                          child: Text(
+                            firstLetter,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                  title: Text(
+                    c.displayName,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    c.phones.isNotEmpty ? c.phones.first.number : "(no number)",
+                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
                   ),
                 ),
-                title: Text(contact.name,
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)),
-                subtitle: Text(contact.location,
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14)),
-              ),
-              if (index < contacts.length - 1)
-                const Divider(color: Color(0xFF333333), height: 1, indent: 70, endIndent: 15),
-            ],
-          );
-        }).toList(),
-      ),
+              );
+            }).toList(),
+          ],
+        );
+      },
     );
   }
 
+  // 🔹 Dummy Recent Log (kept from your UI)
   Widget _buildRecentLogView() {
     return SingleChildScrollView(
       child: Column(
@@ -237,33 +262,10 @@ class _PhoneAppPageState extends State<CallsPage> {
           _buildLogSection('Today', [
             CallLogItem(name: 'Inshrah Khatri', time: '13:45', isOutgoing: true),
             CallLogItem(name: 'Shweta Behera', time: '12:15', isOutgoing: true),
-            CallLogItem(name: 'Aarya Pawar', time: '10:30', isOutgoing: true),
-            CallLogItem(name: 'Mumma', time: '09:10', isOutgoing: false),
-            CallLogItem(name: 'Pappa', time: '08:37', isOutgoing: true),
-            CallLogItem(name: 'Akash Patel', time: '08:15', isOutgoing: false),
-            CallLogItem(name: 'Office', time: '07:45', isOutgoing: true),
-            CallLogItem(name: 'Chirag Patel', time: '07:22', isOutgoing: false),
-            CallLogItem(name: 'Aman Singh', time: '06:50', isOutgoing: true),
-            CallLogItem(name: 'Aditi Sharma', time: '06:15', isOutgoing: false),
           ]),
           _buildLogSection('Yesterday', [
-            CallLogItem(name: 'Inshrah Khatri', time: '21:45', isOutgoing: true),
-            CallLogItem(name: 'Shweta Behera', time: '19:15', isOutgoing: false),
             CallLogItem(name: 'Best Friend', time: '18:30', isOutgoing: true),
             CallLogItem(name: 'Ajay Devgan', time: '17:22', isOutgoing: false),
-            CallLogItem(name: 'Didi', time: '16:05', isOutgoing: true),
-            CallLogItem(name: 'Bharat Kumar', time: '15:40', isOutgoing: false),
-            CallLogItem(name: 'Deepak Chahar', time: '14:30', isOutgoing: true),
-            CallLogItem(name: 'Amit Shah', time: '13:15', isOutgoing: false),
-            CallLogItem(name: 'Chandrika Devi', time: '11:10', isOutgoing: true),
-            CallLogItem(name: 'Bindu Madhavi', time: '10:05', isOutgoing: false),
-          ]),
-          _buildLogSection('This Week', [
-            CallLogItem(name: 'Aaryan Sharma', time: 'Wed', isOutgoing: true),
-            CallLogItem(name: 'Abhishek Gupta', time: 'Wed', isOutgoing: false),
-            CallLogItem(name: 'Akshay Kumar', time: 'Tue', isOutgoing: true),
-            CallLogItem(name: 'Chetan Bhagat', time: 'Tue', isOutgoing: false),
-            CallLogItem(name: 'Divya Khosla', time: 'Mon', isOutgoing: true),
           ]),
         ],
       ),
@@ -277,7 +279,10 @@ class _PhoneAppPageState extends State<CallsPage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 12.0),
           child: Text(title,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold)),
         ),
         _buildCallLogGroup(logs),
       ],
@@ -300,20 +305,28 @@ class _PhoneAppPageState extends State<CallsPage> {
           return Column(
             children: [
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
                 leading: CircleAvatar(
                   backgroundColor: const Color(0xFF333333),
                   child: Text(
                     firstLetter,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
                 title: Text(call.name,
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500)),
                 subtitle: Row(
                   children: [
                     Icon(call.isOutgoing ? Icons.call_made : Icons.call_received,
-                        color: call.isOutgoing ? Colors.green : Colors.red, size: 16),
+                        color: call.isOutgoing ? Colors.green : Colors.red,
+                        size: 16),
                     const SizedBox(width: 4),
                     Text(call.time,
                         style: TextStyle(color: Colors.grey[500], fontSize: 14)),
@@ -321,20 +334,14 @@ class _PhoneAppPageState extends State<CallsPage> {
                 ),
               ),
               if (index < calls.length - 1)
-                const Divider(color: Color(0xFF333333), height: 1, indent: 70, endIndent: 15),
+                const Divider(
+                    color: Color(0xFF333333), height: 1, indent: 70, endIndent: 15),
             ],
           );
         }).toList(),
       ),
     );
   }
-}
-
-class ContactItem {
-  final String name;
-  final String location;
-
-  ContactItem({required this.name, required this.location});
 }
 
 class CallLogItem {
