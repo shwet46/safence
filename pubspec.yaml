@@ -20,6 +20,11 @@ dependencies:
   url_launcher: ^6.3.1
   flutter_secure_storage: ^9.2.4
   jwt_decode: ^0.3.1
+  flutter_sms_inbox: ^1.0.4
+  firebase_core: ^3.15.2
+  flutter_dotenv: ^5.1.0
+  firebase_auth: 5.7.0
+  cloud_firestore: 5.6.11
 
 dev_dependencies:
   flutter_test:
@@ -42,6 +47,7 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/icons/navbar/
+    - .env
 
   fonts:
     - family: Inter

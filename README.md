@@ -9,7 +9,6 @@
 
 **Safence** is an application designed for secure communication, emphasizing user privacy while providing robust contact, call, and message management features.  
 
----
 
 ## Spam Protection
 
@@ -34,7 +33,6 @@
   </tr>
 </table>
 
----
 
 ## Features
 

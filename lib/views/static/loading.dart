@@ -21,7 +21,10 @@ class _LoadingScreenState extends State<LoadingScreen> {
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 34, 34, 34),
       body: Center(
-        child: Image.asset(Constants.loader),
+        child: Image.asset(
+          Constants.loader,
+          errorBuilder: (context, error, stack) => const CircularProgressIndicator(color: Colors.white),
+        ),
       ),
     );
   }

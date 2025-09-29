@@ -5,6 +5,7 @@ import 'package:safence/views/main/mails.dart';
 import 'package:safence/views/main/messages.dart';
 import 'package:safence/views/main/calls.dart';
 import 'package:safence/views/static/page404.dart';
+import 'package:safence/views/main/profile.dart';
 
 class HomeController extends StatefulWidget {
   const HomeController({super.key});
@@ -20,9 +21,9 @@ class _HomeControllerState extends State<HomeController> {
   List<Widget> get _pages => [
     const CallsPage(),
     const MessagesScreen(),
-    const Page404(pageName: "Voice Mails"),
+    const Page404(pageName: "Spams"),
     const MailsPage(),
-    const Page404(pageName: "Profile"),
+    const ProfilePage(),
   ];
 
   @override

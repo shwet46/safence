@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
-import 'package:safence/views/main/main_page.dart';
+import 'package:safence/views/auth/auth_gate.dart';
 import 'package:safence/views/static/loading.dart';
 
 class SplashScreen extends StatefulWidget{
@@ -19,7 +19,7 @@ class _SplashScreenState extends State<SplashScreen>{
     Timer(const Duration(seconds: 2), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          CupertinoPageRoute(builder: (context) => const HomeController()),
+          CupertinoPageRoute(builder: (context) => const AuthGate()),
         );
       }
     });

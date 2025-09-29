@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "718284363939",
+    "project_id": "athera-10525",
+    "storage_bucket": "athera-10525.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:718284363939:android:7dcbb821779e830d10c716",
+        "android_client_info": {
+          "package_name": "com.example.safence"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "718284363939-33dkdpmb07vger47uvncf9b0cc3jmjho.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1OiLa9v5qr2bWP-zanGdZcIPNQIjbq-k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "718284363939-33dkdpmb07vger47uvncf9b0cc3jmjho.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

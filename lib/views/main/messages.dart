@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show EventChannel;
+import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(
@@ -63,29 +66,133 @@ class MessagesScreen extends StatefulWidget {
 class _MessagesScreenState extends State<MessagesScreen> {
   MessageCategory _selectedCategory = MessageCategory.all;
   bool _isFilterMenuOpen = false;
+  String _searchQuery = '';
+  late final SmsQuery _smsQuery;
+  static const EventChannel _smsStream = EventChannel('safence/sms_stream');
+  final List<MessageData> _allMessages = [];
 
-  final List<MessageData> _allMessages = [
-    MessageData(sender: '54321', content: 'Your Vi recharge is successful curre...', time: '03:41', isYesterday: false, category: MessageCategory.regular),
-    MessageData(sender: 'VM-TCSP', content: 'Click here to win the rewards and...', time: '02:45', isYesterday: false, category: MessageCategory.spam),
-    MessageData(sender: 'Maha-gov', content: 'Your registration is successful kindly...', time: '03:41', isYesterday: false, category: MessageCategory.important),
-    MessageData(sender: 'Flipkart', content: 'Your order is placed successfully...', time: 'Yesterday', isYesterday: true, category: MessageCategory.regular),
-    MessageData(sender: 'SBI-Bank', content: 'Your account is credited with Rs. 50,...', time: 'Yesterday', isYesterday: true, category: MessageCategory.important),
-    MessageData(sender: '54321', content: 'Your Vi recharge is successful curre...', time: 'Yesterday', isYesterday: true, category: MessageCategory.regular),
-    MessageData(sender: 'Amazon', content: 'Your order #AB123456 has been shipped...', time: '01:15', isYesterday: false, category: MessageCategory.regular),
-    MessageData(sender: 'DM-PRIZE', content: 'Congratulations! You won \$5,000,000 in our lottery...', time: '12:07', isYesterday: false, category: MessageCategory.spam),
-    MessageData(sender: 'HDFC-Bank', content: 'Your credit card payment of Rs. 15,000 is due...', time: '09:22', isYesterday: false, category: MessageCategory.important),
-    MessageData(sender: 'Netflix', content: 'New release: Your favorite show has a new season...', time: '11:30', isYesterday: false, category: MessageCategory.regular),
-    MessageData(sender: 'SPAM-VIP', content: 'URGENT: Your car warranty is about to expire...', time: '07:18', isYesterday: false, category: MessageCategory.spam),
-    MessageData(sender: 'Swiggy', content: '50% OFF your next order! Use code TASTY50...', time: '2 days ago', isYesterday: false, category: MessageCategory.regular),
-    MessageData(sender: 'Income Tax', content: 'Your tax refund has been processed. Amount...', time: '2 days ago', isYesterday: false, category: MessageCategory.important),
-    MessageData(sender: 'LinkedIn', content: 'You have 5 new connection requests and 3 new...', time: '3 days ago', isYesterday: false, category: MessageCategory.regular),
-    MessageData(sender: '98765', content: 'Your OTP for transaction is 459832. Valid for 5...', time: '3 days ago', isYesterday: false, category: MessageCategory.regular),
-    MessageData(sender: 'Uber', content: 'Your ride has been confirmed. Driver arriving in...', time: '3 days ago', isYesterday: false, category: MessageCategory.regular),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _initSms();
+  }
+
+  // Background handler must be a top-level or static function. We only use foreground here.
+  Future<void> _initSms() async {
+    _smsQuery = SmsQuery();
+    // Request SMS permission at runtime
+    final granted = await _ensureSmsPermission();
+    if (!mounted) return;
+    if (granted) {
+      await _loadInbox();
+      _listenIncoming();
+    }
+  }
+
+  Future<bool> _ensureSmsPermission() async {
+    final status = await Permission.sms.request();
+    return status.isGranted;
+  }
+
+  Future<void> _loadInbox() async {
+    try {
+      final List<SmsMessage> inbox = await _smsQuery.querySms(
+        kinds: [SmsQueryKind.inbox],
+        sort: true,
+      );
+      final now = DateTime.now();
+      final mapped = inbox.map((m) {
+  final dt = m.date ?? now;
+        final today = DateTime(now.year, now.month, now.day);
+        final yday = today.subtract(const Duration(days: 1));
+        final isYesterday = dt.isAfter(yday) && dt.isBefore(today);
+        return MessageData(
+          sender: m.address ?? 'Unknown',
+          content: m.body ?? '',
+          time: _formatTime(dt, now),
+          isYesterday: isYesterday,
+          category: _categorize(m),
+        );
+      }).toList();
+      setState(() {
+        _allMessages
+          ..clear()
+          ..addAll(mapped);
+      });
+    } catch (e) {
+      // ignore errors silently or show a toast/snackbar in future
+    }
+  }
+
+  void _listenIncoming() {
+    _smsStream.receiveBroadcastStream().listen((event) {
+      if (event is Map) {
+        final now = DateTime.now();
+        final dt = DateTime.fromMillisecondsSinceEpoch((event['timestamp'] as num?)?.toInt() ?? now.millisecondsSinceEpoch);
+        final data = MessageData(
+          sender: (event['address'] as String?) ?? 'Unknown',
+          content: (event['body'] as String?) ?? '',
+          time: _formatTime(dt, now),
+          isYesterday: false,
+          category: _categorizeFromText((event['address'] as String?) ?? '', (event['body'] as String?) ?? ''),
+        );
+        if (!mounted) return;
+        setState(() {
+          _allMessages.insert(0, data);
+        });
+      }
+    });
+  }
+
+  MessageCategory _categorizeFromText(String address, String body) {
+    final sender = address.toLowerCase();
+    final b = body.toLowerCase();
+    if (b.contains('otp') || b.contains('one time') || b.contains('verification')) return MessageCategory.important;
+    if (sender.contains('bank') || b.contains('credited') || b.contains('debited') || b.contains('payment')) return MessageCategory.important;
+    if (b.contains('win') || b.contains('prize') || b.contains('lottery') || b.contains('urgent') || b.contains('click here')) return MessageCategory.spam;
+    return MessageCategory.regular;
+  }
+
+  String _formatTime(DateTime dt, DateTime now) {
+    final difference = now.difference(dt);
+    if (difference.inDays >= 2) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else {
+      final hh = dt.hour.toString().padLeft(2, '0');
+      final mm = dt.minute.toString().padLeft(2, '0');
+      return '$hh:$mm';
+    }
+  }
+
+  MessageCategory _categorize(SmsMessage m) {
+    final sender = (m.address ?? '').toLowerCase();
+    final body = (m.body ?? '').toLowerCase();
+    // naive heuristics; you can wire to backend later
+    if (body.contains('otp') || body.contains('one time') || body.contains('verification')) {
+      return MessageCategory.important;
+    }
+    if (sender.contains('bank') || body.contains('credited') || body.contains('debited') || body.contains('payment')) {
+      return MessageCategory.important;
+    }
+    if (body.contains('win') || body.contains('prize') || body.contains('lottery') || body.contains('urgent') || body.contains('click here')) {
+      return MessageCategory.spam;
+    }
+    return MessageCategory.regular;
+  }
 
   List<MessageData> get _filteredMessages {
-    if (_selectedCategory == MessageCategory.all) return _allMessages;
-    return _allMessages.where((m) => m.category == _selectedCategory).toList();
+    Iterable<MessageData> list = _allMessages;
+    if (_selectedCategory != MessageCategory.all) {
+      list = list.where((m) => m.category == _selectedCategory);
+    }
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      list = list.where((m) =>
+          m.sender.toLowerCase().contains(q) || (m.content.toLowerCase().contains(q)));
+    }
+    return list.toList();
   }
 
   @override
@@ -97,7 +204,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
           child: Column(
             children: [
-              _buildSearchContainer(),
+              _buildSearchBar(),
               _buildFilterBar(),
               _buildMessagesList(),
             ],
@@ -107,31 +214,35 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 
-  Widget _buildSearchContainer() {
+  Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      child: Row(
-        children: [
-          Container(width: 40, height: 40, decoration: BoxDecoration(color: Color(0xFF333333), shape: BoxShape.circle)),
-          SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 15),
-              height: 45,
-              decoration: BoxDecoration(
-                color: Color(0xFF222222),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Icon(Icons.search, color: Colors.grey, size: 24),
-                  Icon(Icons.more_vert, color: Colors.grey, size: 24),
-                ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        height: 45,
+        decoration: BoxDecoration(
+          color: const Color(0xFF222222),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search, color: Colors.grey, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                style: const TextStyle(color: Colors.white),
+                cursorColor: Colors.white,
+                decoration: const InputDecoration(
+                  hintText: "Search messages...",
+                  hintStyle: TextStyle(color: Colors.grey),
+                  border: InputBorder.none,
+                ),
+                onChanged: (val) => setState(() => _searchQuery = val),
               ),
             ),
-          ),
-        ],
+            const Icon(Icons.more_vert, color: Colors.grey, size: 22),
+          ],
+        ),
       ),
     );
   }
