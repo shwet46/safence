@@ -2,11 +2,37 @@
   <img src="photos/Loading.png" alt="Loading Screen" width="200"/>
   <img src="photos/calllog.png" alt="Call Log Screen" width="200"/>
   <img src="photos/sms.png" alt="SMS Screen" width="200"/>
+  <img src="photos/mails.png" alt="SMS Screen" width="200"/>
 </p>
 
 # Safence
 
 **Safence** is an application designed for secure communication, emphasizing user privacy while providing robust contact, call, and message management features.  
+
+---
+
+## Spam Protection
+
+<table>
+  <tr>
+    <td width="320" valign="top" align="center">
+      <img src="photos/spam.png" alt="Spam Protection" width="200"/>
+    </td>
+    <td valign="top">
+      <p><strong>Manage and classify unwanted communication</strong></p>
+      <p>Safence classifies potential spam across calls, SMS, and emails using detection rules and labeling, so you can:</p>
+      <ul>
+        <li>Automatically flag or categorize suspected spam calls and messages</li>
+        <li>Review a dedicated spam inbox for SMS and emails</li>
+        <li>Quickly block repeat offenders and report spam</li>
+        <li>Keep your main inbox and call history clean and focused</li>
+      </ul>
+      <blockquote>
+        <em>Note:</em> Permissions are required to analyze call logs and messages. Email spam classification depends on your connected provider’s capabilities.
+      </blockquote>
+    </td>
+  </tr>
+</table>
 
 ---
 
@@ -21,22 +47,3 @@
 - **Permissions Handling**: Gracefully requests and handles necessary permissions for contacts, calls, and messages.  
 
 ---
-
-## Dependencies
-
-The project relies on the following key packages:  
-
-- `flutter`: Core framework for building the app.  
-- `provider`: For state management.  
-- `flutter_contacts`: To access and manage device contacts.  
-- `call_log`: To retrieve the device's call history.  
-- `phone_state`: To listen for phone call state changes.  
-- `permission_handler`: To manage runtime permissions.  
-- `url_launcher`: To make phone calls.  
-- `flutter_secure_storage`: For secure data storage.  
-- `cupertino_icons`: For iOS-style icons.  
-- `flutter_svg`: For rendering SVG assets.  
-- `jwt_decode`: For decoding JSON Web Tokens.  
-
----
-
