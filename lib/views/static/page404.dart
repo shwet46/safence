@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:safence/utils/constants.dart';
 
 class Page404 extends StatefulWidget {
-  const Page404({super.key});
+  final String pageName;
+  const Page404({super.key, required this.pageName});
 
 
   @override
@@ -27,30 +28,28 @@ class _Page404State extends State<Page404> {
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
-      children: const [
+      children: [
         Text(
-          '404',
-          style: TextStyle(
+          '${widget.pageName} Page',
+          style: const TextStyle(
             fontFamily: 'Inter',
-            fontSize: 48,
+            fontSize: 24,
             color: Constants.darkThemeFontColor,
             height: 1
           ),
         ),
-        Text(
-          'Sorry Page not found!',
+        const Text(
+          'is under progress',
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 20,
             color: Constants.darkThemeFontColor,
-            height: 1
+            height: 1.5
           ),
         ),
       ],
     ),
   ),
-
   );
-  
-  }
+}
 }

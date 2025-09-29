@@ -5,15 +5,9 @@ allprojects {
     }
 }
 
-// Provide legacy extra properties expected by some older Flutter/Android plugin
-// build.gradle (Groovy) scripts (e.g. path_provider_android) that still read
-// values from `rootProject.ext.compileSdkVersion` etc. The modern Kotlin DSL
-// template doesn't define these, which leads to: "compileSdkVersion is not specified".
-// Keeping them here is harmless for up-to-date plugins and unblocks older ones.
 extra.apply {
-    // Bump these cautiously; keep in sync with values used in app module.
-    set("compileSdkVersion", 34)
-    set("targetSdkVersion", 34)
+    set("compileSdkVersion", 35)
+    set("targetSdkVersion", 35)
     set("minSdkVersion", 21)
 }
 
@@ -30,4 +24,13 @@ subprojects {
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
+}
+
+subprojects {
+    if (project.name == "phone_state") {
+        project.plugins.withId("com.android.library") {
+            val android = project.extensions.getByType<com.android.build.gradle.LibraryExtension>()
+            android.namespace = "it.mainella.phone_state" 
+        }
+    }
 }

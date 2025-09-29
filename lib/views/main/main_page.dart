@@ -18,11 +18,11 @@ class _HomeControllerState extends State<HomeController> {
   final PageController _pageController = PageController();
 
   List<Widget> get _pages => [
-    CallsPage(),
-    MessagesScreen(),
-    Page404(),
-    MailsPage(),
-    Page404(),
+    const CallsPage(),
+    const MessagesScreen(),
+    const Page404(pageName: "Voice Mails"),
+    const MailsPage(),
+    const Page404(pageName: "Profile"),
   ];
 
   @override
@@ -31,14 +31,14 @@ class _HomeControllerState extends State<HomeController> {
     super.dispose();
   }
 
-  // void _onItemTapped(int index) {
-  //   if (index != _selectedIndex) {
-  //     setState(() {
-  //       _selectedIndex = index;
-  //     });
-  //     _pageController.jumpToPage(index);
-  //   }
-  // }
+  void _onItemTapped(int index) {
+    if (index != _selectedIndex) {
+      setState(() {
+        _selectedIndex = index;
+      });
+      _pageController.jumpToPage(index);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +46,15 @@ class _HomeControllerState extends State<HomeController> {
       backgroundColor: Constants.darkThemeBg,
       body: Stack(
         children: [
-          _pages[_selectedIndex],
+          PageView(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
+            children: _pages,
+          ),
           Positioned(
             left: 0,
             right: 0,
@@ -56,11 +64,7 @@ class _HomeControllerState extends State<HomeController> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: CustomBottomNav(
                   currentIndex: _selectedIndex,
-                  onItemSelected: (index) {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
-                  },
+                  onItemSelected: _onItemTapped,
                 ),
               ),
             ),
