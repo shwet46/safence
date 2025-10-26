@@ -3,9 +3,8 @@ import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
+    // Apply Google services plugin for Android app (version declared in settings.gradle.kts)
     id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
     id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -52,7 +51,13 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Apply release signing only if a keystore has been configured.
+            // Previously this unconditionally set the signingConfig which caused
+            // Gradle to fail when `storeFile` was missing.
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning != null && releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

@@ -4,6 +4,7 @@ import 'package:call_log/call_log.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:phone_state/phone_state.dart'; 
 import 'package:url_launcher/url_launcher.dart';
+import 'package:safence/components/contact_detail.dart';
 
 class CallsPage extends StatefulWidget {
   const CallsPage({super.key});
@@ -261,80 +262,86 @@ class _CallsPageState extends State<CallsPage> {
       );
     }
 
-    final List<Widget> items = [];
     final Map<String, List<Contact>> grouped = {};
 
     for (final c in _filteredContacts) {
-      final letter =
-          c.displayName.isNotEmpty ? c.displayName[0].toUpperCase() : "#";
+      final letter = c.displayName.isNotEmpty ? c.displayName[0].toUpperCase() : "#";
       grouped.putIfAbsent(letter, () => []).add(c);
     }
     final sortedLetters = grouped.keys.toList()..sort();
 
-    for (final letter in sortedLetters) {
-      items.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8.0),
-          child: Text(
-            letter,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      );
-
-      final contacts = grouped[letter]!;
-      items.addAll(contacts.map((c) => _buildContactTile(c)));
-    }
-
     return ListView.builder(
-      itemCount: items.length,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: sortedLetters.length,
       itemBuilder: (context, index) {
-        return items[index];
+        final letter = sortedLetters[index];
+        final contacts = grouped[letter]!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Text(letter, style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+            ...contacts.map((c) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                  child: _buildContactTile(c),
+                )),
+          ],
+        );
       },
     );
   }
 
   Widget _buildContactTile(Contact c) {
-    final firstLetter = c.displayName.isNotEmpty ? c.displayName[0] : "?";
     final phoneNumber = c.phones.isNotEmpty ? c.phones.first.number : null;
+    final extraCount = c.phones.length > 1 ? c.phones.length - 1 : 0;
+    final initials = c.displayName.isNotEmpty ? c.displayName.trim().split(' ').map((s) => s.characters.first).take(2).join().toUpperCase() : '?';
+    final color = _pastelColors[c.displayName.hashCode % _pastelColors.length];
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 4.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFF222222),
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return Card(
+      color: const Color(0xFF0F0F0F),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        onTap: phoneNumber != null ? () => _makePhoneCall(phoneNumber) : null,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ContactDetailPage(contact: c))),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         leading: c.thumbnail != null
-            ? CircleAvatar(backgroundImage: MemoryImage(c.thumbnail!))
+            ? CircleAvatar(backgroundImage: MemoryImage(c.thumbnail!), radius: 26)
             : CircleAvatar(
-                backgroundColor: const Color(0xFF333333),
-                child: Text(
-                  firstLetter,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold),
-                ),
+                radius: 26,
+                backgroundColor: color,
+                child: Text(initials, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
               ),
-        title: Text(
-          c.displayName,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
-        ),
+        title: Text(c.displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         subtitle: Text(
-          phoneNumber ?? "(no number)",
-          style: TextStyle(color: Colors.grey[500], fontSize: 14),
+          phoneNumber != null ? (extraCount > 0 ? '$phoneNumber • +$extraCount more' : phoneNumber) : '(no number)',
+          style: const TextStyle(color: Colors.white70),
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              onPressed: phoneNumber != null ? () => _makePhoneCall(phoneNumber) : null,
+              icon: const Icon(Icons.call, color: Color(0xFF8952D4)),
+            ),
+            IconButton(
+              onPressed: phoneNumber != null ? () => _sendSms(phoneNumber) : null,
+              icon: const Icon(Icons.message, color: Colors.white70),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Future<void> _sendSms(String phoneNumber) async {
+    final Uri uri = Uri(scheme: 'sms', path: phoneNumber);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to open SMS app')));
+    }
   }
 
   Widget _buildRecentLogView() {
@@ -343,101 +350,172 @@ class _CallsPageState extends State<CallsPage> {
           child: Text("No call logs found",
               style: TextStyle(color: Colors.white)));
     }
-
-    final List<Widget> items = [];
-    final Map<String, List<CallLogEntry>> grouped = {};
-
+    // First group by date (Today, Yesterday, or dd/mm/yyyy), then within each
+    // date group, group by phone number so calls from the same number on the
+    // same date are shown together.
+    final Map<String, List<CallLogEntry>> groupedByDate = {};
     for (final log in _callLogs) {
       if (log.timestamp == null) continue;
-      final date =
-          _formatDate(DateTime.fromMillisecondsSinceEpoch(log.timestamp!));
-      grouped.putIfAbsent(date, () => []).add(log);
+      final date = _formatDate(DateTime.fromMillisecondsSinceEpoch(log.timestamp!));
+      groupedByDate.putIfAbsent(date, () => []).add(log);
     }
 
-    grouped.forEach((date, logs) {
-      items.add(
-        Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 15.0, vertical: 12.0),
-          child: Text(date,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold)),
-        ),
-      );
-      items.add(Container(
-        margin: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8.0),
-        decoration: BoxDecoration(
-          color: const Color(0xFF222222),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          children: logs.asMap().entries.map((entry) {
-            final index = entry.key;
-            final call = entry.value;
-            return Column(
-              children: [
-                _buildCallLogTile(call),
-                if (index < logs.length - 1)
-                  const Divider(
-                      color: Color(0xFF333333),
-                      height: 1,
-                      indent: 70,
-                      endIndent: 15),
-              ],
-            );
-          }).toList(),
-        ),
-      ));
-    });
+    // Sort date groups by most recent call within that date
+    final dateEntries = groupedByDate.entries.toList()
+      ..sort((a, b) {
+        final aLatest = a.value.map((e) => e.timestamp ?? 0).reduce((v, e) => v > e ? v : e);
+        final bLatest = b.value.map((e) => e.timestamp ?? 0).reduce((v, e) => v > e ? v : e);
+        return bLatest.compareTo(aLatest);
+      });
 
     return ListView.builder(
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        return items[index];
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: dateEntries.length,
+      itemBuilder: (context, di) {
+        final dateLabel = dateEntries[di].key;
+        final logsForDate = dateEntries[di].value;
+
+        // Group logs for this date by normalized phone number
+        final Map<String, List<CallLogEntry>> byNumber = {};
+        for (final log in logsForDate) {
+          final number = log.number ?? 'Unknown';
+          final key = _normalizeNumber(number);
+          byNumber.putIfAbsent(key, () => []).add(log);
+        }
+
+        // Sort groups by latest timestamp descending
+        final groups = byNumber.entries.toList()
+          ..sort((a, b) {
+            final aLatest = a.value.map((e) => e.timestamp ?? 0).reduce((v, e) => v > e ? v : e);
+            final bLatest = b.value.map((e) => e.timestamp ?? 0).reduce((v, e) => v > e ? v : e);
+            return bLatest.compareTo(aLatest);
+          });
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 12.0),
+              child: Text(dateLabel,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: Column(
+                children: groups.map((entry) {
+                  final logs = entry.value;
+                  final displayName = logs.firstWhere((l) => (l.name ?? '').isNotEmpty, orElse: () => logs.first).name ?? logs.first.number ?? 'Unknown';
+                  final number = logs.first.number ?? 'Unknown';
+                  final count = logs.length;
+                  final latestTs = logs.map((e) => e.timestamp ?? 0).reduce((v, e) => v > e ? v : e);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: _buildNumberGroupTile(displayName, number, logs, count, latestTs),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        );
       },
     );
   }
 
-  Widget _buildCallLogTile(CallLogEntry call) {
-    final name = call.name ?? call.number ?? 'Unknown';
-    final firstLetter = name.isNotEmpty ? name[0].toUpperCase() : "?";
-    final phoneNumber = call.number;
+  String _normalizeNumber(String number) {
+    // Keep digits only and take last 10 digits for grouping
+    final digits = number.replaceAll(RegExp(r"[^0-9]"), '');
+    if (digits.length <= 10) return digits;
+    return digits.substring(digits.length - 10);
+  }
 
-    return ListTile(
-      onTap: phoneNumber != null ? () => _makePhoneCall(phoneNumber) : null,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
-      leading: CircleAvatar(
-        backgroundColor: const Color(0xFF333333),
-        child: Text(
-          firstLetter,
-          style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold),
+  // Pastel color palette for avatars
+  static const List<Color> _pastelColors = [
+    Color(0xFFFFD1DC), // pink
+    Color(0xFFFFF1C2), // lemon
+    Color(0xFFCCFFFD), // aqua
+    Color(0xFFD8F3DC), // mint
+    Color(0xFFE6E6FA), // lavender
+    Color(0xFFFFE5B4), // peach
+  ];
+
+  Widget _buildNumberGroupTile(String name, String number, List<CallLogEntry> logs, int count, int latestTs) {
+    final initials = name.trim().isNotEmpty ? name.trim().split(' ').map((s) => s.characters.first).take(2).join().toUpperCase() : '?';
+    final color = _pastelColors[number.hashCode % _pastelColors.length];
+    final latestCall = logs.reduce((a, b) => (a.timestamp ?? 0) > (b.timestamp ?? 0) ? a : b);
+    return Card(
+      color: const Color(0xFF121212),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        collapsedIconColor: Colors.white70,
+        iconColor: Colors.white,
+        leading: CircleAvatar(
+          radius: 26,
+          backgroundColor: color,
+          child: Text(initials, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         ),
-      ),
-      title: Text(name,
-          style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w500)),
-      subtitle: Row(
-        children: [
-          Icon(_getCallIcon(call.callType),
-              color: _getCallColor(call.callType), size: 16),
-          const SizedBox(width: 4),
-          Text(
-              call.timestamp != null
-                  ? _formatTime(call.timestamp!)
-                  : "--:--",
-              style: TextStyle(
-                  color: Colors.grey[500], fontSize: 14)),
-        ],
+        title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        subtitle: Row(
+          children: [
+            Icon(_getCallIcon(latestCall.callType), color: _getCallColor(latestCall.callType), size: 14),
+            const SizedBox(width: 6),
+            Text(_callTypeLabel(latestCall.callType), style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            const SizedBox(width: 8),
+            Text('• ${_formatTime(latestTs)}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(width: 6),
+            Flexible(child: Text(' • $number', style: const TextStyle(color: Colors.white38, fontSize: 12), overflow: TextOverflow.ellipsis)),
+          ],
+        ),
+        children: logs.map((call) {
+          return Column(
+            children: [
+              ListTile(
+                onTap: call.number != null ? () => _makePhoneCall(call.number!) : null,
+                leading: Icon(_getCallIcon(call.callType), color: _getCallColor(call.callType)),
+                title: Text(call.name ?? call.number ?? 'Unknown', style: const TextStyle(color: Colors.white)),
+                subtitle: Text('${_formatDate(DateTime.fromMillisecondsSinceEpoch(call.timestamp ?? 0))} • ${_formatTime(call.timestamp ?? 0)}', style: const TextStyle(color: Colors.white60)),
+                trailing: Text(_formatDuration(call.duration ?? 0), style: const TextStyle(color: Colors.white54)),
+              ),
+              if (call != logs.last) const Divider(color: Color(0xFF222222), height: 1, indent: 70, endIndent: 12),
+            ],
+          );
+        }).toList(),
+        childrenPadding: EdgeInsets.zero,
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(20)),
+          child: Text('$count', style: const TextStyle(color: Colors.white)),
+        ),
       ),
     );
   }
+
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '';
+    final m = (seconds ~/ 60).toString();
+    final s = (seconds % 60).toString().padLeft(2, '0');
+    return '${m}m ${s}s';
+  }
+
+  String _callTypeLabel(CallType? callType) {
+    switch (callType) {
+      case CallType.outgoing:
+        return 'Outgoing';
+      case CallType.missed:
+        return 'Missed';
+      case CallType.rejected:
+        return 'Rejected';
+      case CallType.incoming:
+        return 'Incoming';
+      default:
+        return 'Call';
+    }
+  }
+
+  
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();

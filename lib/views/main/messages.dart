@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/services.dart' show EventChannel;
+import 'package:safence/models/message_category.dart';
+import 'package:safence/components/message_filter.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
+import 'package:safence/views/main/message_detail.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 void main() {
@@ -26,8 +29,6 @@ class MessagesApp extends StatelessWidget {
     );
   }
 }
-
-enum MessageCategory { all, spam, important, regular }
 
 class MessageData {
   final String sender;
@@ -201,11 +202,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+          padding: const EdgeInsets.fromLTRB(10.0, 10.0, 10.0, 80.0),
           child: Column(
             children: [
               _buildSearchBar(),
-              _buildFilterBar(),
+              MessageFilter(selectedCategory: _selectedCategory, onCategoryChanged: (c) => setState(() => _selectedCategory = c)),
               _buildMessagesList(),
             ],
           ),
@@ -247,127 +248,73 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 
-  Widget _buildFilterBar() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-          child: Row(
-            children: [
-              InkWell(
-                onTap: () => setState(() => _isFilterMenuOpen = !_isFilterMenuOpen),
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Color(0xFF8952D4),
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.tune, color: Colors.white, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        _getFilterText(),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (_isFilterMenuOpen)
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 15),
-            decoration: BoxDecoration(
-              color: Color(0xFF222222),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 10,
-                  offset: Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildFilterOption(MessageCategory.all, 'All Messages'),
-                _buildFilterOption(MessageCategory.spam, 'Spam', Color(0xFFE25C5C)),
-                _buildFilterOption(MessageCategory.important, 'Important', Color(0xFFE9AD40)),
-                _buildFilterOption(MessageCategory.regular, 'Regular'),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
+  
 
-  Widget _buildFilterOption(MessageCategory category, String text, [Color? iconColor]) {
-    return InkWell(
-      onTap: () => setState(() {
-        _selectedCategory = category;
-        _isFilterMenuOpen = false;
-      }),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        width: double.infinity,
-        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF333333), width: 0.5))),
-        child: Row(
-          children: [
-            Icon(
-              _selectedCategory == category ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              color: _selectedCategory == category ? Color(0xFF8952D4) : Colors.grey,
-              size: 18,
-            ),
-            SizedBox(width: 10),
-            if (iconColor != null) ...[
-              Container(width: 12, height: 12, decoration: BoxDecoration(color: iconColor, shape: BoxShape.circle)),
-              SizedBox(width: 8),
-            ],
-            Text(text, style: TextStyle(color: Colors.white, fontSize: 14)),
-          ],
-        ),
+  Widget _buildMessagesList() {
+    final messages = _filteredMessages;
+    if (messages.isEmpty) {
+      return const Expanded(child: Center(child: Text('No messages in this category', style: TextStyle(color: Colors.grey))));
+    }
+
+    // Group messages into Today / Yesterday / Older
+    final Map<String, List<MessageData>> groups = {'Today': [], 'Yesterday': [], 'Older': []};
+    for (final m in messages) {
+      if (m.isYesterday) {
+        groups['Yesterday']!.add(m);
+      } else {
+        if (m.time == 'Yesterday') {
+          groups['Yesterday']!.add(m);
+        } else {
+          final isToday = RegExp(r"^\d{2}:\d{2}").hasMatch(m.time);
+          if (isToday) {
+            groups['Today']!.add(m);
+          } else {
+            groups['Older']!.add(m);
+          }
+        }
+      }
+    }
+
+    final sectionOrder = ['Today', 'Yesterday', 'Older'];
+
+    return Expanded(
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: sectionOrder.fold<int>(0, (acc, key) => acc + (groups[key]!.isEmpty ? 0 : groups[key]!.length + 1)),
+        itemBuilder: (context, index) {
+          // iterate through sections to find which section and which item
+          int cursor = 0;
+          for (final section in sectionOrder) {
+            final list = groups[section]!;
+            if (list.isEmpty) continue;
+            // header
+            if (index == cursor) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                child: Text(section, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              );
+            }
+            cursor += 1;
+            // items
+            if (index < cursor + list.length) {
+              final item = list[index - cursor];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                child: MessageCard(message: item),
+              );
+            }
+            cursor += list.length;
+          }
+          return const SizedBox.shrink();
+        },
       ),
     );
   }
-
-  String _getFilterText() {
-    switch (_selectedCategory) {
-      case MessageCategory.spam:
-        return 'Spam Messages';
-      case MessageCategory.important:
-        return 'Important Messages';
-      case MessageCategory.regular:
-        return 'Regular Messages';
-      default:
-        return 'Filter Messages';
-    }
-  }
-
-  Widget _buildMessagesList() {
-    return Expanded(
-      child: _filteredMessages.isEmpty
-          ? Center(child: Text('No messages in this category', style: TextStyle(color: Colors.grey)))
-          : ListView.separated(
-              itemCount: _filteredMessages.length,
-              separatorBuilder: (_, __) => Divider(color: Color(0xFF222222), height: 1),
-              itemBuilder: (context, index) => MessageItem(message: _filteredMessages[index]),
-            ),
-    );
-  }
 }
-
-class MessageItem extends StatelessWidget {
+class MessageCard extends StatelessWidget {
   final MessageData message;
 
-  const MessageItem({super.key, required this.message});
+  const MessageCard({super.key, required this.message});
 
   IconData _getIconForSender(String sender) {
     final s = sender.toLowerCase();
@@ -385,58 +332,59 @@ class MessageItem extends StatelessWidget {
     return Icons.message;
   }
 
+  static const List<Color> _pastelColors = [
+    Color(0xFFFFD1DC),
+    Color(0xFFFFF1C2),
+    Color(0xFFCCFFFD),
+    Color(0xFFD8F3DC),
+    Color(0xFFE6E6FA),
+    Color(0xFFFFE5B4),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: Color(0xFF333333), shape: BoxShape.circle),
-            child: Center(
-              child: Icon(
-                _getIconForSender(message.sender),
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
+    final avatarColor = _pastelColors[message.sender.hashCode % _pastelColors.length];
+    final icon = _getIconForSender(message.sender);
+    final isImportant = message.category == MessageCategory.important;
+
+    return Card(
+      color: const Color(0xFF0F0F0F),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        leading: CircleAvatar(
+          radius: 26,
+          backgroundColor: avatarColor,
+          child: Icon(icon, color: Colors.black87, size: 20),
+        ),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: Text(message.sender, style: TextStyle(color: message.senderColor, fontSize: 16, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+            Text(message.time, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6.0),
+          child: Row(
+            children: [
+              Expanded(child: Text(message.content, style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis)),
+              if (isImportant) ...[
+                const SizedBox(width: 8),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFE9AD40), borderRadius: BorderRadius.circular(12)), child: const Text('Important', style: TextStyle(color: Colors.black87, fontSize: 12))),
+              ]
+            ],
           ),
-          SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      message.sender,
-                      style: TextStyle(
-                        color: message.senderColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      message.time,
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Text(
-                  message.content,
-                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
+        onTap: () {
+          Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => MessageDetailScreen(
+            sender: message.sender,
+            content: message.content,
+            time: message.time,
+            isYesterday: message.isYesterday,
+            category: message.category,
+          )));
+        },
       ),
     );
   }

@@ -1,11 +1,5 @@
 import 'package:flutter/material.dart';
-
-enum MessageCategory {
-  all,
-  important,
-  normal,
-  spam,
-}
+import 'package:safence/models/message_category.dart';
 
 class MailsPage extends StatefulWidget {
   const MailsPage({super.key});
@@ -139,8 +133,8 @@ class _MailsPageState extends State<MailsPage> {
   }
 
   List<Map<String, String>> get filteredMails {
-    if (_selectedCategory == MessageCategory.all) return mails;
-    String categoryTag = _getCategoryTag(_selectedCategory);
+  if (_selectedCategory == MessageCategory.all) return mails;
+  String categoryTag = _getCategoryTag(_selectedCategory);
     return mails.where((mail) => mail['tag'] == categoryTag).toList();
   }
 
@@ -150,7 +144,7 @@ class _MailsPageState extends State<MailsPage> {
         return 'important';
       case MessageCategory.spam:
         return 'spam';
-      case MessageCategory.normal:
+      case MessageCategory.regular:
         return 'normal';
       default:
         return '';
@@ -161,7 +155,7 @@ class _MailsPageState extends State<MailsPage> {
     switch (_selectedCategory) {
       case MessageCategory.important:
         return 'Important Mails';
-      case MessageCategory.normal:
+      case MessageCategory.regular:
         return 'Regular Mails';
       case MessageCategory.spam:
         return 'Spam Mails';
@@ -284,7 +278,7 @@ class _MailsPageState extends State<MailsPage> {
               children: [
                 _buildFilterOption(MessageCategory.all, 'All Mails'),
                 _buildFilterOption(MessageCategory.important, 'Important', Color(0xFFE9AD40)),
-                _buildFilterOption(MessageCategory.normal, 'Regular'),
+                _buildFilterOption(MessageCategory.regular, 'Regular'),
                 _buildFilterOption(MessageCategory.spam, 'Spam', Color(0xFFE25C5C)),
               ],
             ),

@@ -17,6 +17,7 @@ class HomeController extends StatefulWidget {
 class _HomeControllerState extends State<HomeController> {
   int _selectedIndex = 0;
   final PageController _pageController = PageController();
+ 
 
   List<Widget> get _pages => [
     const CallsPage(),
@@ -56,6 +57,7 @@ class _HomeControllerState extends State<HomeController> {
             },
             children: _pages,
           ),
+          
           Positioned(
             left: 0,
             right: 0,
@@ -70,6 +72,7 @@ class _HomeControllerState extends State<HomeController> {
               ),
             ),
           ),
+          
         ],
       ),
     );

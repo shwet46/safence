@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:safence/providers/firebase_auth_provider.dart';
 
 class SignupPage extends StatefulWidget {
@@ -32,7 +33,28 @@ class _SignupPageState extends State<SignupPage> {
         username: _username.text.trim(),
       );
       if (mounted) Navigator.pop(context);
+    } on FirebaseAuthException catch (e) {
+      debugPrint('FirebaseAuthException during signup: ${e.code} ${e.message}');
+      String friendly;
+      switch (e.code) {
+        case 'email-already-in-use':
+          friendly = 'An account already exists for that email.';
+          break;
+        case 'invalid-email':
+          friendly = 'The email address is not valid.';
+          break;
+        case 'weak-password':
+          friendly = 'The password is too weak (min 6 chars).';
+          break;
+        case 'operation-not-allowed':
+          friendly = 'This sign-up method is not enabled in Firebase.';
+          break;
+        default:
+          friendly = e.message ?? e.code;
+      }
+      setState(() { _error = friendly; });
     } catch (e) {
+      debugPrint('Exception during signup: $e');
       setState(() { _error = e.toString(); });
     } finally {
       if (mounted) setState(() { _loading = false; });
@@ -45,29 +67,46 @@ class _SignupPageState extends State<SignupPage> {
       backgroundColor: Colors.black,
       appBar: AppBar(title: const Text('Create account'), backgroundColor: Colors.black, foregroundColor: Colors.white),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
-              const SizedBox(height: 8),
-              _field(_username, 'Username'),
-              const SizedBox(height: 8),
-              _field(_email, 'Email'),
-              const SizedBox(height: 8),
-              _field(_password, 'Password', obscure: true),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _signup,
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8952D4)),
-                  child: _loading ? const CircularProgressIndicator(color: Colors.white) : const Text('Sign up'),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Card(
+                color: const Color(0xFF0F0F0F),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 6,
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text('Create account', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      if (_error != null) ...[
+                        Text(_error!, style: const TextStyle(color: Colors.red)),
+                        const SizedBox(height: 8),
+                      ],
+                      _field(_username, 'Username'),
+                      const SizedBox(height: 12),
+                      _field(_email, 'Email'),
+                      const SizedBox(height: 12),
+                      _field(_password, 'Password', obscure: true),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: _loading ? null : _signup,
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8952D4)),
+                          child: _loading ? const CircularProgressIndicator(color: Colors.white) : const Text('Sign up'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
