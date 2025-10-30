@@ -11,13 +11,14 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  flutter_svg: ^2.0.17
+  flutter_svg: ^2.0.9
   provider: ^6.1.5
   flutter_contacts: ^1.1.9+2
   call_log: ^5.0.0
   phone_state: ^1.0.4          
   permission_handler: ^11.3.1
   url_launcher: ^6.3.1
+  http: ^0.13.6
   flutter_secure_storage: ^9.2.4
   jwt_decode: ^0.3.1
   flutter_sms_inbox: ^1.0.4

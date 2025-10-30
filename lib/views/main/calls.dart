@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:phone_state/phone_state.dart'; 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:safence/components/contact_detail.dart';
+import 'package:safence/services/numverify_service.dart';
 
 class CallsPage extends StatefulWidget {
   const CallsPage({super.key});
@@ -21,6 +22,9 @@ class _CallsPageState extends State<CallsPage> {
   String _searchQuery = "";
   List<CallLogEntry> _callLogs = [];
   bool _isLoading = true;
+  // Cache spam detection results for numbers (normalized)
+  final Map<String, bool> _spamCache = {};
+  final Set<String> _spamCheckInProgress = {};
 
   @override
   void initState() {
@@ -442,6 +446,9 @@ class _CallsPageState extends State<CallsPage> {
   ];
 
   Widget _buildNumberGroupTile(String name, String number, List<CallLogEntry> logs, int count, int latestTs) {
+    if (!_isNumberInContacts(number)) {
+      _ensureSpamStatus(number);
+    }
     final initials = name.trim().isNotEmpty ? name.trim().split(' ').map((s) => s.characters.first).take(2).join().toUpperCase() : '?';
     final color = _pastelColors[number.hashCode % _pastelColors.length];
     final latestCall = logs.reduce((a, b) => (a.timestamp ?? 0) > (b.timestamp ?? 0) ? a : b);
@@ -467,6 +474,16 @@ class _CallsPageState extends State<CallsPage> {
             Text('• ${_formatTime(latestTs)}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
             const SizedBox(width: 6),
             Flexible(child: Text(' • $number', style: const TextStyle(color: Colors.white38, fontSize: 12), overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 6),
+            // Spam badge when numverify/service marks number as spam.
+            // Do not show badge for saved contacts.
+            if (!_isNumberInContacts(number) && _spamCache[_normalizeNumber(number)] == true) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFE25C5C), borderRadius: BorderRadius.circular(12)),
+                child: const Text('Spam', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+            ],
           ],
         ),
         children: logs.map((call) {
@@ -491,6 +508,35 @@ class _CallsPageState extends State<CallsPage> {
         ),
       ),
     );
+  }
+
+  void _ensureSpamStatus(String number) {
+    final key = _normalizeNumber(number);
+    if (key.isEmpty) return;
+    if (_spamCache.containsKey(key) || _spamCheckInProgress.contains(key)) return;
+    _spamCheckInProgress.add(key);
+
+    NumverifyService.isSpamNumber(number).then((isSpam) {
+      if (!mounted) return;
+      setState(() {
+        _spamCache[key] = isSpam;
+        _spamCheckInProgress.remove(key);
+      });
+    }).catchError((_) {
+      _spamCheckInProgress.remove(key);
+    });
+  }
+
+  bool _isNumberInContacts(String number) {
+    final key = _normalizeNumber(number);
+    if (key.isEmpty) return false;
+    for (final c in _contacts) {
+      for (final p in c.phones) {
+        final pn = _normalizeNumber(p.number);
+        if (pn.isNotEmpty && pn == key) return true;
+      }
+    }
+    return false;
   }
 
   String _formatDuration(int seconds) {
