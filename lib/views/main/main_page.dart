@@ -4,7 +4,7 @@ import 'package:safence/utils/constants.dart';
 import 'package:safence/views/main/mails.dart';
 import 'package:safence/views/main/messages.dart';
 import 'package:safence/views/main/calls.dart';
-import 'package:safence/views/static/page404.dart';
+import 'package:safence/views/main/spam.dart';
 import 'package:safence/views/main/profile.dart';
 
 class HomeController extends StatefulWidget {
@@ -22,7 +22,7 @@ class _HomeControllerState extends State<HomeController> {
   List<Widget> get _pages => [
     const CallsPage(),
     const MessagesScreen(),
-    const Page404(pageName: "Spams"),
+    const SpamPage(),
     const MailsPage(),
     const ProfilePage(),
   ];
