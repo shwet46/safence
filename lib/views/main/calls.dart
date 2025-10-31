@@ -5,7 +5,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:phone_state/phone_state.dart'; 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:safence/components/contact_detail.dart';
+import 'package:safence/components/num_keypad.dart';
 import 'package:safence/services/numverify_service.dart';
+import 'package:safence/services/numlookup_service.dart';
+import 'package:safence/views/main/call_detail.dart';
 
 class CallsPage extends StatefulWidget {
   const CallsPage({super.key});
@@ -22,9 +25,18 @@ class _CallsPageState extends State<CallsPage> {
   String _searchQuery = "";
   List<CallLogEntry> _callLogs = [];
   bool _isLoading = true;
+  // dial pad state
+  bool _showDialPad = false;
+
   // Cache spam detection results for numbers (normalized)
   final Map<String, bool> _spamCache = {};
   final Set<String> _spamCheckInProgress = {};
+
+  final Map<String, NumlookupResult?> _numlookupCache = {};
+  final Set<String> _numlookupInProgress = {};
+
+  final Map<String, Map<String, dynamic>?> _numverifyDetailsCache = {};
+  final Set<String> _numverifyInProgress = {};
 
   @override
   void initState() {
@@ -48,7 +60,6 @@ class _CallsPageState extends State<CallsPage> {
       }
     });
   }
-
   Future<void> _refreshData() async {
     await _fetchCallLogs();
     await _fetchContacts();
@@ -128,34 +139,80 @@ class _CallsPageState extends State<CallsPage> {
 
   @override
   Widget build(BuildContext context) {
+  // Compute exact offset based on how `CustomBottomNav` is laid out in main_page:
+  // SafeArea (inset) + Padding(bottom:8) + Container margin.bottom (20) + nav height (70)
+  final inset = MediaQuery.of(context).padding.bottom;
+  const double navPaddingBottom = 8.0;
+  const double navMargin = 20.0;
+  const double navHeight = 70.0;
+  const double extraGap = 36.0; // increased gap between nav and keypad to lift it higher
+  final bottomNavGap = inset + navPaddingBottom + navMargin + navHeight + extraGap;
+  final double navRightInset = navMargin; // align overlay horizontally with the nav's margin
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSearchBar(),
-              const SizedBox(height: 10),
-              _buildFilterButtons(),
-              const SizedBox(height: 10),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: _refreshData,
-                  color: Colors.white,
-                  backgroundColor: const Color(0xFF222222),
-                  child: _isLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(color: Colors.white))
-                      : showContacts
-                          ? _buildContactsView()
-                          : _buildRecentLogView(),
-                ),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSearchBar(),
+                  const SizedBox(height: 10),
+                  _buildFilterButtons(),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _refreshData,
+                      color: Colors.white,
+                      backgroundColor: const Color(0xFF222222),
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(color: Colors.white))
+                          : showContacts
+                              ? _buildContactsView()
+                              : _buildRecentLogView(),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+
+            // Dial pad overlay positioned above bottom nav at bottom-right
+            Positioned(
+              right: navRightInset,
+              bottom: bottomNavGap,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: _showDialPad
+                    ? NumKeypad(
+                        key: const ValueKey('num_keypad'),
+                        onClose: () => setState(() => _showDialPad = false),
+                        onCall: (num) {
+                          setState(() => _showDialPad = false);
+                          _makePhoneCall(num);
+                        },
+                        onSms: (num) {
+                          setState(() => _showDialPad = false);
+                          _sendSms(num);
+                        },
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ),
+
+            // Toggle button anchored bottom-right
+            Positioned(
+              right: navRightInset,
+              bottom: inset + navPaddingBottom + navMargin + navHeight + 12.0, // place FAB higher above the nav
+              child: FloatingActionButton(
+                backgroundColor: const Color(0xFF8952D4),
+                onPressed: () => setState(() => _showDialPad = !_showDialPad),
+                child: Icon(_showDialPad ? Icons.keyboard_hide : Icons.dialpad),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -303,6 +360,13 @@ class _CallsPageState extends State<CallsPage> {
     final initials = c.displayName.isNotEmpty ? c.displayName.trim().split(' ').map((s) => s.characters.first).take(2).join().toUpperCase() : '?';
     final color = _pastelColors[c.displayName.hashCode % _pastelColors.length];
 
+    // Trigger spam check for contact's primary number and read cached value
+    final contactKey = phoneNumber != null ? _normalizeNumber(phoneNumber) : '';
+    if (phoneNumber != null && contactKey.isNotEmpty) {
+      _ensureSpamStatus(phoneNumber);
+    }
+    final bool contactIsSpam = contactKey.isNotEmpty && (_spamCache[contactKey] == true);
+
     return Card(
       color: const Color(0xFF0F0F0F),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -325,6 +389,14 @@ class _CallsPageState extends State<CallsPage> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (contactIsSpam) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFE25C5C), borderRadius: BorderRadius.circular(12)),
+                child: const Text('Spam', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 8),
+            ],
             IconButton(
               onPressed: phoneNumber != null ? () => _makePhoneCall(phoneNumber) : null,
               icon: const Icon(Icons.call, color: Color(0xFF8952D4)),
@@ -446,19 +518,42 @@ class _CallsPageState extends State<CallsPage> {
   ];
 
   Widget _buildNumberGroupTile(String name, String number, List<CallLogEntry> logs, int count, int latestTs) {
-    if (!_isNumberInContacts(number)) {
-      _ensureSpamStatus(number);
+    final key = _normalizeNumber(number);
+    // Always trigger lookups so we can show location/owner info for all numbers
+    _ensureSpamStatus(number);
+    _ensureNumlookup(number);
+    _ensureNumverifyDetails(number);
+
+    final NumlookupResult? nl = key.isNotEmpty ? _numlookupCache[key] : null;
+    final Map<String, dynamic>? nv = key.isNotEmpty ? _numverifyDetailsCache[key] : null;
+    final bool nvSpam = nv != null ? _nvIsSpam(nv) : false;
+    final bool isSpamFinal = (nl?.isSpam == true) || (nl == null && (nvSpam || _spamCache[key] == true));
+
+    // Determine owner/carrier/location from available caches
+    String? ownerName = nl?.owner;
+    if (ownerName == null && nv != null) {
+      for (final k in ['caller_name', 'callerid', 'name', 'owner', 'owner_name', 'contact_name']) {
+        if (nv.containsKey(k) && nv[k] is String && (nv[k] as String).trim().isNotEmpty) {
+          ownerName = nv[k] as String;
+          break;
+        }
+      }
     }
+    String? carrier = nl?.raw['carrier'] as String?;
+    carrier ??= nv?['carrier'] as String?;
+    String? location = nl?.raw['location'] as String?;
+    location ??= nv?['location'] as String?;
+    location ??= nv?['country_name'] as String?;
+
     final initials = name.trim().isNotEmpty ? name.trim().split(' ').map((s) => s.characters.first).take(2).join().toUpperCase() : '?';
     final color = _pastelColors[number.hashCode % _pastelColors.length];
     final latestCall = logs.reduce((a, b) => (a.timestamp ?? 0) > (b.timestamp ?? 0) ? a : b);
+
     return Card(
       color: const Color(0xFF121212),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        collapsedIconColor: Colors.white70,
-        iconColor: Colors.white,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         leading: CircleAvatar(
           radius: 26,
           backgroundColor: color,
@@ -472,42 +567,92 @@ class _CallsPageState extends State<CallsPage> {
             Text(_callTypeLabel(latestCall.callType), style: const TextStyle(color: Colors.white70, fontSize: 13)),
             const SizedBox(width: 8),
             Text('• ${_formatTime(latestTs)}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-            const SizedBox(width: 6),
-            Flexible(child: Text(' • $number', style: const TextStyle(color: Colors.white38, fontSize: 12), overflow: TextOverflow.ellipsis)),
-            const SizedBox(width: 6),
-            // Spam badge when numverify/service marks number as spam.
-            // Do not show badge for saved contacts.
-            if (!_isNumberInContacts(number) && _spamCache[_normalizeNumber(number)] == true) ...[
+            const SizedBox(width: 8),
+        
+            Flexible(
+              child: InkWell(
+                onTap: () {
+                  final key = _normalizeNumber(number);
+                  final nl = key.isNotEmpty ? _numlookupCache[key] : null;
+                  final nv = key.isNotEmpty ? _numverifyDetailsCache[key] : null;
+                  final spamScoreLocal = nl?.spamScore ?? (nv != null && nv['spam_score'] is num ? (nv['spam_score'] as num).toDouble() : null);
+                  final isSpamLocal = (nl?.isSpam == true) || (nl == null && (nv != null ? _nvIsSpam(nv) : (_spamCache[key] == true)));
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => CallDetailScreen(number: number, owner: nl?.owner ?? ownerName, numlookup: nl?.raw, numverify: nv, spamScore: spamScoreLocal, isSpam: isSpamLocal)));
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('$number', style: const TextStyle(color: Colors.white38, fontSize: 12), overflow: TextOverflow.ellipsis),
+                    if (location != null && location.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(location, style: const TextStyle(color: Colors.white38, fontSize: 11), overflow: TextOverflow.ellipsis),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSpamFinal) ...[
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(color: const Color(0xFFE25C5C), borderRadius: BorderRadius.circular(12)),
                 child: const Text('Spam', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
               ),
+              const SizedBox(width: 8),
             ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(20)),
+              child: Text('$count', style: const TextStyle(color: Colors.white)),
+            ),
           ],
         ),
-        children: logs.map((call) {
-          return Column(
-            children: [
-              ListTile(
-                onTap: call.number != null ? () => _makePhoneCall(call.number!) : null,
-                leading: Icon(_getCallIcon(call.callType), color: _getCallColor(call.callType)),
-                title: Text(call.name ?? call.number ?? 'Unknown', style: const TextStyle(color: Colors.white)),
-                subtitle: Text('${_formatDate(DateTime.fromMillisecondsSinceEpoch(call.timestamp ?? 0))} • ${_formatTime(call.timestamp ?? 0)}', style: const TextStyle(color: Colors.white60)),
-                trailing: Text(_formatDuration(call.duration ?? 0), style: const TextStyle(color: Colors.white54)),
-              ),
-              if (call != logs.last) const Divider(color: Color(0xFF222222), height: 1, indent: 70, endIndent: 12),
-            ],
-          );
-        }).toList(),
-        childrenPadding: EdgeInsets.zero,
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(20)),
-          child: Text('$count', style: const TextStyle(color: Colors.white)),
-        ),
+        onTap: () {
+          // Also allow tapping the whole tile to open details
+          final key = _normalizeNumber(number);
+          final nl = key.isNotEmpty ? _numlookupCache[key] : null;
+          final nv = key.isNotEmpty ? _numverifyDetailsCache[key] : null;
+          final spamScoreLocal = nl?.spamScore ?? (nv != null && nv['spam_score'] is num ? (nv['spam_score'] as num).toDouble() : null);
+          final isSpamLocal = (nl?.isSpam == true) || (nl == null && (nv != null ? _nvIsSpam(nv) : (_spamCache[key] == true)));
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => CallDetailScreen(number: number, owner: nl?.owner ?? null, numlookup: nl?.raw, numverify: nv, spamScore: spamScoreLocal, isSpam: isSpamLocal)));
+        },
       ),
     );
+  }
+
+  void _ensureNumverifyDetails(String number) {
+    final key = _normalizeNumber(number);
+    if (key.isEmpty) return;
+    if (_numverifyDetailsCache.containsKey(key) || _numverifyInProgress.contains(key)) return;
+    _numverifyInProgress.add(key);
+
+    NumverifyService.fetchDetails(number).then((res) {
+      if (!mounted) return;
+      setState(() {
+        _numverifyDetailsCache[key] = res;
+        _numverifyInProgress.remove(key);
+      });
+    }).catchError((_) {
+      _numverifyInProgress.remove(key);
+    });
+  }
+
+  bool _nvIsSpam(Map<String, dynamic> data) {
+    try {
+      final valid = data['valid'] == true;
+      final lineType = (data['line_type'] as String?)?.toLowerCase();
+      final carrier = (data['carrier'] as String?)?.toLowerCase();
+      if (!valid) return true;
+      if (lineType == 'voip' || lineType == 'pager' || lineType == 'unknown') return true;
+      if (carrier == null || carrier.isEmpty) return true;
+    } catch (e) {
+      return false;
+    }
+    return false;
   }
 
   void _ensureSpamStatus(String number) {
@@ -527,24 +672,23 @@ class _CallsPageState extends State<CallsPage> {
     });
   }
 
-  bool _isNumberInContacts(String number) {
+  void _ensureNumlookup(String number) {
     final key = _normalizeNumber(number);
-    if (key.isEmpty) return false;
-    for (final c in _contacts) {
-      for (final p in c.phones) {
-        final pn = _normalizeNumber(p.number);
-        if (pn.isNotEmpty && pn == key) return true;
-      }
-    }
-    return false;
+    if (key.isEmpty) return;
+    if (_numlookupCache.containsKey(key) || _numlookupInProgress.contains(key)) return;
+    _numlookupInProgress.add(key);
+
+    NumlookupService.lookup(number).then((res) {
+      if (!mounted) return;
+      setState(() {
+        _numlookupCache[key] = res;
+        _numlookupInProgress.remove(key);
+      });
+    }).catchError((_) {
+      _numlookupInProgress.remove(key);
+    });
   }
 
-  String _formatDuration(int seconds) {
-    if (seconds <= 0) return '';
-    final m = (seconds ~/ 60).toString();
-    final s = (seconds % 60).toString().padLeft(2, '0');
-    return '${m}m ${s}s';
-  }
 
   String _callTypeLabel(CallType? callType) {
     switch (callType) {
